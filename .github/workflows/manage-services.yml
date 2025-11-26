@@ -1,0 +1,103 @@
+name: Manage VM Services
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action à effectuer'
+        required: true
+        type: choice
+        options:
+          - start
+          - stop
+          - restart
+          - status
+
+jobs:
+  manage-services:
+    name: ${{ github.event.inputs.action }} Services
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          VM_IP="${{ secrets.VM_IP }}"
+          if [ -z "$VM_IP" ]; then
+            echo "❌ VM_IP n'est pas configuré dans les secrets GitHub"
+            exit 1
+          fi
+          
+          echo "VM_IP=$VM_IP" >> $GITHUB_ENV
+          ssh-keyscan -H $VM_IP >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Execute Action
+        run: |
+          ACTION="${{ github.event.inputs.action }}"
+          
+          echo "🔧 Exécution de l'action: $ACTION"
+          
+          case $ACTION in
+            start)
+              echo "▶️ Démarrage des services..."
+              ssh azureuser@${{ env.VM_IP }} << 'ENDSSH'
+                sudo systemctl start nextjs
+                sudo systemctl start nginx
+                echo "✅ Services démarrés"
+              ENDSSH
+              ;;
+              
+            stop)
+              echo "⏸️ Arrêt des services..."
+              ssh azureuser@${{ env.VM_IP }} << 'ENDSSH'
+                sudo systemctl stop nextjs
+                sudo systemctl stop nginx
+                echo "✅ Services arrêtés"
+                echo "💰 Économie des ressources en cours..."
+              ENDSSH
+              ;;
+              
+            restart)
+              echo "🔄 Redémarrage des services..."
+              ssh azureuser@${{ env.VM_IP }} << 'ENDSSH'
+                sudo systemctl restart nextjs
+                sudo systemctl restart nginx
+                echo "✅ Services redémarrés"
+              ENDSSH
+              ;;
+              
+            status)
+              echo "📊 Statut des services..."
+              ssh azureuser@${{ env.VM_IP }} << 'ENDSSH'
+                echo "=== Service Next.js ==="
+                sudo systemctl status nextjs --no-pager || true
+                echo ""
+                echo "=== Service Nginx ==="
+                sudo systemctl status nginx --no-pager || true
+              ENDSSH
+              ;;
+          esac
+
+      - name: Verify Services
+        if: github.event.inputs.action == 'start' || github.event.inputs.action == 'restart'
+        run: |
+          echo "🧪 Vérification des services..."
+          sleep 3
+          
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ env.VM_IP }}:3000 || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
+            echo "✅ Application accessible !"
+          else
+            echo "⚠️ Application non accessible (HTTP $HTTP_CODE)"
+          fi
+
+      - name: Summary
+        run: |
+          echo "=========================================="
+          echo "Action '${{ github.event.inputs.action }}' terminée"
+          echo "VM: ${{ env.VM_IP }}"
+          echo "=========================================="

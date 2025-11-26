@@ -1,0 +1,150 @@
+name: Deploy Application
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      vm_ip:
+        description: 'IP de la VM Azure (optionnel si déjà configurée)'
+        required: false
+        type: string
+
+jobs:
+  deploy:
+    name: Deploy Next.js App to VM
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout app repository
+        uses: actions/checkout@v4
+        with:
+          repository: vulne-app/vulnscanner-app
+          path: app
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Récupère l'IP depuis les secrets ou les inputs
+          VM_IP="${{ secrets.VM_IP }}"
+          if [ -z "$VM_IP" ]; then
+            VM_IP="${{ github.event.inputs.vm_ip }}"
+          fi
+          
+          if [ -z "$VM_IP" ]; then
+            echo "❌ VM_IP n'est pas configuré dans les secrets GitHub"
+            exit 1
+          fi
+          
+          echo "VM_IP=$VM_IP" >> $GITHUB_ENV
+          
+          # Ajoute l'IP aux known hosts
+          ssh-keyscan -H $VM_IP >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Test SSH Connection
+        run: |
+          echo "🔍 Test de connexion SSH à la VM..."
+          for i in {1..10}; do
+            if ssh -o ConnectTimeout=5 azureuser@${{ env.VM_IP }} "echo 'Connexion SSH réussie'" 2>/dev/null; then
+              echo "✅ Connexion SSH établie !"
+              exit 0
+            fi
+            echo "Tentative $i/10... Attente 5s"
+            sleep 5
+          done
+          echo "❌ Impossible de se connecter à la VM"
+          exit 1
+
+      - name: Deploy Application
+        run: |
+          echo "🚀 Déploiement de l'application sur la VM..."
+          
+          ssh azureuser@${{ env.VM_IP }} << 'ENDSSH'
+            set -e
+            
+            echo "📂 Navigation vers le dossier de l'application..."
+            cd /opt/vulnscanner/app || {
+              echo "❌ Le dossier /opt/vulnscanner/app n'existe pas"
+              echo "💡 Assurez-vous que Terraform a été déployé manuellement d'abord"
+              exit 1
+            }
+            
+            echo "🔄 Pull des dernières modifications depuis GitHub..."
+            sudo git fetch origin
+            sudo git reset --hard origin/main
+            
+            echo "📦 Installation des dépendances..."
+            sudo npm ci --production
+            
+            echo "🏗️ Build de l'application Next.js..."
+            sudo npm run build
+            
+            echo "🔄 Redémarrage du service Next.js..."
+            sudo systemctl restart nextjs
+            
+            echo "⏳ Attente du redémarrage..."
+            sleep 5
+            
+            echo "✅ Déploiement terminé !"
+          ENDSSH
+
+      - name: Verify Deployment
+        run: |
+          echo "🧪 Vérification du déploiement..."
+          
+          # Vérifier que le service tourne
+          ssh azureuser@${{ env.VM_IP }} "sudo systemctl is-active nextjs" || {
+            echo "❌ Le service nextjs n'est pas actif"
+            ssh azureuser@${{ env.VM_IP }} "sudo journalctl -u nextjs -n 20 --no-pager"
+            exit 1
+          }
+          
+          # Vérifier que l'app répond
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://${{ env.VM_IP }}:3000 || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
+            echo "✅ Application accessible et fonctionnelle !"
+            echo "🌐 URL: http://${{ env.VM_IP }}"
+          else
+            echo "⚠️ L'application ne répond pas correctement (HTTP $HTTP_CODE)"
+            echo "📋 Logs du service :"
+            ssh azureuser@${{ env.VM_IP }} "sudo journalctl -u nextjs -n 30 --no-pager"
+            exit 1
+          fi
+
+      - name: Deployment Summary
+        if: success()
+        run: |
+          echo "=========================================="
+          echo "✅ DÉPLOIEMENT RÉUSSI !"
+          echo "=========================================="
+          echo ""
+          echo "🌐 Application accessible sur :"
+          echo "   http://${{ env.VM_IP }} (via Nginx)"
+          echo "   http://${{ env.VM_IP }}:3000 (direct)"
+          echo ""
+          echo "📊 Pour vérifier les logs :"
+          echo "   ssh azureuser@${{ env.VM_IP }}"
+          echo "   sudo journalctl -u nextjs -f"
+          echo ""
+          echo "=========================================="
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "=========================================="
+          echo "❌ DÉPLOIEMENT ÉCHOUÉ"
+          echo "=========================================="
+          echo ""
+          echo "Vérifiez :"
+          echo "1. La VM est accessible"
+          echo "2. L'infrastructure Terraform est déployée"
+          echo "3. Les secrets SSH sont corrects"
+          echo "4. Le service nextjs existe sur la VM"
+          echo ""
+          echo "=========================================="
