@@ -40,7 +40,7 @@ Voici les variables utilisées pour configurer cette infrastructure :
 |----------|-------------|------|--------|
 | `resource_group_name` | Nom du groupe de ressources Azure | string | `rg-vulnscanner` |
 | `location` | Région Azure pour les ressources | string | `francecentral` |
-| `vm_size` | Taille de la machine virtuelle | string | `Standard_D2s_v5` |
+| `vm_size` | Taille de la machine virtuelle | string | `Standard_B2ms` |
 | `admin_username` | Nom d'utilisateur pour la connexion SSH | string | `azureuser` |
 | `github_repo_url` | URL du repository GitHub de l'application | string | `https://github.com/vulne-app/vulnscanner-app.git` |
 
@@ -227,15 +227,15 @@ Confirmez la suppression en tapant `yes`.
 
 ## Troubleshooting
 
-### Erreur SkuNotAvailable
+### Erreur SkuNotAvailable ou Quota
 
-Si vous obtenez une erreur `SkuNotAvailable` lors du déploiement, cela signifie que la taille de VM n'est pas disponible dans la région. Utilisez une taille alternative :
+Si vous obtenez une erreur `SkuNotAvailable` ou `exceeding quota` lors du déploiement, utilisez une taille de VM alternative :
 
 ```bash
-terraform apply -var="vm_size=Standard_B2ms"
+terraform apply -var="vm_size=Standard_B2s"
 ```
 
-Tailles alternatives disponibles :
-- `Standard_D2s_v5` (par défaut)
-- `Standard_B2ms`
-- `Standard_B2s` 
+Tailles alternatives :
+- `Standard_B2ms` (par défaut)
+- `Standard_B2s`
+- `Standard_D2s_v5` 

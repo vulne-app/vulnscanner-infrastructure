@@ -13,7 +13,7 @@ variable "location" {
 variable "vm_size" {
   description = "Taille de la VM"
   type        = string
-  default     = "Standard_D2s_v5"
+  default     = "Standard_B2ms"
 }
 
 variable "admin_username" {
