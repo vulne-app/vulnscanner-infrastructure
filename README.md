@@ -9,6 +9,7 @@ Infrastructure as Code pour le déploiement automatisé de l'application VulnSca
 - Marlene
 - Jessica
 - Walid
+- Michelle
 
 ## Description
 
