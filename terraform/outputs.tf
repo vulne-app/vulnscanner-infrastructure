@@ -8,7 +8,12 @@ output "ssh_command" {
   value       = "ssh ${var.admin_username}@${azurerm_public_ip.main.ip_address}"
 }
 
+output "app_url" {
+  description = "URL de l'application (via Nginx)"
+  value       = "http://${azurerm_public_ip.main.ip_address}"
+}
+
 output "nextjs_url" {
-  description = "URL du site Next.js"
+  description = "URL directe Next.js"
   value       = "http://${azurerm_public_ip.main.ip_address}:3000"
 }

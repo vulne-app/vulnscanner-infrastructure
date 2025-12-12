@@ -150,7 +150,8 @@ Après le déploiement, Terraform affiche les outputs :
 ```
 Outputs:
 
-nextjs_url = "http://<PUBLIC_IP>"
+app_url = "http://<PUBLIC_IP>"
+nextjs_url = "http://<PUBLIC_IP>:3000"
 public_ip = "<PUBLIC_IP>"
 ssh_command = "ssh azureuser@<PUBLIC_IP>"
 ```
