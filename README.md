@@ -12,7 +12,7 @@ Infrastructure as Code pour le déploiement automatisé de l'application VulnSca
 
 ## Description
 
-Cette infrastructurex configure un environnement complet sur Azure pour déployer l'application VulnScanner. Elle inclut les ressources suivantes :
+Cette infrastructure configure un environnement complet sur Azure pour déployer l'application VulnScanner. Elle inclut les ressources suivantes :
 
 - Une **Virtual Machine Ubuntu 22.04 LTS** pour héberger l'application
 - Un **Virtual Network (VNet)** avec subnet pour isoler les ressources
@@ -28,7 +28,7 @@ Cette infrastructurex configure un environnement complet sur Azure pour déploye
 | Cloud Provider | Microsoft Azure |
 | OS | Ubuntu 22.04 LTS |
 | Runtime | Node.js 20.x |
-| Framework | Next.js 16 |
+| Framework | Next.js 15 |
 | Reverse Proxy | Nginx |
 | IaC | Terraform |
 
@@ -49,7 +49,7 @@ Voici les variables utilisées pour configurer cette infrastructure :
 L'organisation des fichiers Terraform pour cette infrastructure est la suivante :
 
 ```
-infrastructure/
+vulnscanner-infrastructure/
 ├── terraform/
 │   ├── main.tf          # Déclarations principales (VM, compute)
 │   ├── network.tf       # Réseau virtuel, subnet, NSG, IP publique
@@ -57,7 +57,8 @@ infrastructure/
 │   ├── outputs.tf       # Sorties des ressources Terraform
 │   └── providers.tf     # Configuration du provider Azure
 ├── scripts/
-│   └── setup-vm.sh      # Script cloud-init pour le provisionnement
+│   ├── setup-vm.sh      # Script cloud-init pour le provisionnement
+│   └── deploy-nextjs.sh # Script de déploiement Next.js
 ├── .gitignore           # Fichiers exclus du versioning
 └── README.md            # Documentation (ce fichier)
 ```
@@ -149,9 +150,9 @@ Après le déploiement, Terraform affiche les outputs :
 ```
 Outputs:
 
-nextjs_url = "http://4.233.106.136"
-public_ip = "4.233.106.136"
-ssh_command = "ssh azureuser@4.233.106.136"
+nextjs_url = "http://<PUBLIC_IP>"
+public_ip = "<PUBLIC_IP>"
+ssh_command = "ssh azureuser@<PUBLIC_IP>"
 ```
 
 ### 5. Attendre la fin du provisionnement
